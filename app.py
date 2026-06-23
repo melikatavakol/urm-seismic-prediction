@@ -299,11 +299,9 @@ with tab2:
         to reduce the prediction error of the previous trees, allowing the model to capture 
         nonlinear relationships between input variables and target responses.
 
-        In this application, four separate XGBoost regression models are used. Each model 
-        predicts one response index associated with a specific in-plane failure mechanism 
-        of masonry walls. The raw outputs of the four models are then normalized to obtain 
-        the Hybridity Index (%) values.
-
+        In this application, the XGBoost model is used to predict the contribution of different
+        failure modes to the overal wall behavior.Notably, the model requires only the wall design
+        characteristics as input variables.
         The input parameters are:
 
         | Input variable | Unit / coding | Description |
@@ -318,10 +316,10 @@ with tab2:
 
         | Output | Meaning |
         |---|---|
-        | Rocking Hybridity Index (%) | Normalized contribution of rocking behavior |
-        | Sliding Hybridity Index (%) | Normalized contribution of sliding behavior |
-        | Diagonal Hybridity Index (%) | Normalized contribution of diagonal cracking behavior |
-        | Toe Crushing Hybridity Index (%) | Normalized contribution of toe crushing behavior |
+        | Rocking Hybridity Index (%) | contribution of rocking behavior |
+        | Sliding Hybridity Index (%) | contribution of sliding behavior |
+        | Diagonal Hybridity Index (%) | contribution of diagonal cracking behavior |
+        | Toe Crushing Hybridity Index (%) | contribution of toe crushing behavior |
 
         A larger Hybridity Index indicates a larger contribution of that failure mechanism 
         to the predicted cyclic behavior of the URM wall.
