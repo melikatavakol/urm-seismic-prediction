@@ -6,6 +6,8 @@ import streamlit as st
 import pandas as pd
 import joblib
 import matplotlib.pyplot as plt
+from pathlib import Path
+from PIL import Image, UnidentifiedImageError
 
 
 # ---------------------------------------------------------------
@@ -170,7 +172,65 @@ tab_about, tab_predict, tab_detect = st.tabs(
 
 
 # ---------------------------------------------------------------
-# TAB 1: XGBOOST-BASED PREDICTION PAGE
+# TAB 1: ABOUT THE MODEL
+# ---------------------------------------------------------------
+
+with tab_about:
+    
+    st.header("About the Model")
+
+    st.markdown(
+        """
+        This web application is developed to evaluate the seismic behavior of 
+        unreinforced masonry walls using two complementary approaches.
+
+        The first approach is an **XGBoost-based machine learning model**. XGBoost stands for 
+        **Extreme Gradient Boosting**. It is a tree-based machine learning algorithm that builds 
+        an ensemble of decision trees sequentially. Each new tree attempts to reduce the prediction 
+        error of the previous trees, allowing the model to capture nonlinear relationships between 
+        input variables and target responses.
+
+        In this application, the XGBoost model is used to predict the contribution of different 
+        failure modes to the overall wall behavior. Notably, the model requires only the wall design 
+        characteristics as input variables.
+
+        The input parameters for the XGBoost-based prediction module are:
+
+        | Input variable | Unit / coding | Description |
+        |---|---|---|
+        | Wall aspect ratio | Dimensionless | Geometric slenderness of the wall |
+        | Prism strength | MPa | Masonry prism compressive strength |
+        | Boundary condition | Fixed-fixed = 1, Fixed-free = 0 | Support condition of the wall |
+        | Axial load ratio | Dimensionless | Normalized axial load applied to the wall |
+        | Cross-sectional area | m² | Wall sectional area |
+
+        The predicted outputs are:
+
+        | Output | Meaning |
+        |---|---|
+        | Rocking Hybridity Index (%) | Contribution of rocking behavior |
+        | Sliding Hybridity Index (%) | Contribution of sliding behavior |
+        | Diagonal Hybridity Index (%) | Contribution of diagonal cracking behavior |
+        | Toe Crushing Hybridity Index (%) | Contribution of toe crushing behavior |
+
+        A larger Hybridity Index indicates a larger contribution of that failure mechanism 
+        to the predicted cyclic behavior of the URM wall.
+
+        The second approach is a **hysteresis-based failure mode detection procedure**. This module 
+        uses parameters extracted from hysteresis testing results, including return displacement, 
+        drift capacity, ultimate drift, strength values, and initial elastic stiffness. The procedure 
+        calculates elastic-return and self-centering parameters, then classifies the wall response as 
+        either force-controlled or deformation-controlled. Based on this classification, the dominant 
+        failure mode is detected as diagonal cracking, toe crushing, rocking, or sliding.
+
+        For the hysteresis-based module, the initial elastic stiffness **K** is defined as the slope 
+        of the data points preceding 50% of the maximum lateral resistance.
+        """
+    )
+
+
+# ---------------------------------------------------------------
+# TAB 2: XGBOOST-BASED PREDICTION PAGE
 # ---------------------------------------------------------------
 
 with tab_predict:
@@ -358,6 +418,7 @@ with tab_predict:
         ax.axis("equal")
 
         st.pyplot(fig)
+        plt.close(fig)
 
         st.info(
             """
@@ -369,7 +430,7 @@ with tab_predict:
 
 
 # ---------------------------------------------------------------
-# TAB 2: HYSTERESIS-BASED FAILURE MODE DETECTION
+# TAB 3: HYSTERESIS-BASED FAILURE MODE DETECTION
 # ---------------------------------------------------------------
 
 with tab_detect:
@@ -383,11 +444,37 @@ with tab_detect:
         is force-controlled or deformation-controlled, and then assigns the corresponding failure mode.
         """
     )
-    st.image(
-        "failure_mode_detection.png",
-        caption="Decision boundaries for hysteresis-based failure mode detection",
-        use_column_width=True
-    )
+
+    # ---------------------------------------------------------------
+    # FAILURE MODE DETECTION IMAGE
+    # ---------------------------------------------------------------
+
+    image_path = Path(__file__).parent / "failure_mode_detection.png"
+
+    try:
+        if image_path.exists():
+
+            with Image.open(image_path) as img:
+                failure_mode_image = img.copy()
+
+            st.image(
+                failure_mode_image,
+                caption="Decision boundaries for hysteresis-based failure mode detection",
+                width=650
+            )
+
+        else:
+            st.error(
+                f"Image file not found at: {image_path}. "
+                "Make sure 'failure_mode_detection.png' is uploaded to GitHub "
+                "in the same folder as app.py."
+            )
+
+    except UnidentifiedImageError:
+        st.error(
+            "The file 'failure_mode_detection.png' exists, but it is not a valid PNG image. "
+            "Convert the original BMP image to PNG instead of only renaming the file extension."
+        )
 
     st.subheader("Enter Hysteresis-Based Parameters")
 
@@ -564,61 +651,3 @@ with tab_detect:
                     consistently for drift, displacement, strength, and stiffness.
                     """
                 )
-
-
-# ---------------------------------------------------------------
-# TAB 3: ABOUT THE MODEL
-# ---------------------------------------------------------------
-
-with tab_about:
-    
-    st.header("About the Model")
-
-    st.markdown(
-        """
-        This web application is developed to evaluate the seismic behavior of 
-        unreinforced masonry walls using two complementary approaches.
-
-        The first approach is an **XGBoost-based machine learning model**. XGBoost stands for 
-        **Extreme Gradient Boosting**. It is a tree-based machine learning algorithm that builds 
-        an ensemble of decision trees sequentially. Each new tree attempts to reduce the prediction 
-        error of the previous trees, allowing the model to capture nonlinear relationships between 
-        input variables and target responses.
-
-        In this application, the XGBoost model is used to predict the contribution of different 
-        failure modes to the overall wall behavior. Notably, the model requires only the wall design 
-        characteristics as input variables.
-
-        The input parameters for the XGBoost-based prediction module are:
-
-        | Input variable | Unit / coding | Description |
-        |---|---|---|
-        | Wall aspect ratio | Dimensionless | Geometric slenderness of the wall |
-        | Prism strength | MPa | Masonry prism compressive strength |
-        | Boundary condition | Fixed-fixed = 1, Fixed-free = 0 | Support condition of the wall |
-        | Axial load ratio | Dimensionless | Normalized axial load applied to the wall |
-        | Cross-sectional area | m² | Wall sectional area |
-
-        The predicted outputs are:
-
-        | Output | Meaning |
-        |---|---|
-        | Rocking Hybridity Index (%) | Contribution of rocking behavior |
-        | Sliding Hybridity Index (%) | Contribution of sliding behavior |
-        | Diagonal Hybridity Index (%) | Contribution of diagonal cracking behavior |
-        | Toe Crushing Hybridity Index (%) | Contribution of toe crushing behavior |
-
-        A larger Hybridity Index indicates a larger contribution of that failure mechanism 
-        to the predicted cyclic behavior of the URM wall.
-
-        The second approach is a **hysteresis-based failure mode detection procedure**. This module 
-        uses parameters extracted from hysteresis testing results, including return displacement, 
-        drift capacity, ultimate drift, strength values, and initial elastic stiffness. The procedure 
-        calculates elastic-return and self-centering parameters, then classifies the wall response as 
-        either force-controlled or deformation-controlled. Based on this classification, the dominant 
-        failure mode is detected as diagonal cracking, toe crushing, rocking, or sliding.
-
-        For the hysteresis-based module, the initial elastic stiffness **K** is defined as the slope 
-        of the data points preceding 50% of the maximum lateral resistance.
-        """
-    )
