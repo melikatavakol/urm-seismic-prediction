@@ -44,7 +44,7 @@ models, feature_cols, target_cols = load_models()
 
 
 # ---------------------------------------------------------------
-# PREDICTION FUNCTION
+# XGBOOST PREDICTION FUNCTION
 # ---------------------------------------------------------------
 
 def predict_failure_indices(input_data):
@@ -60,6 +60,87 @@ def predict_failure_indices(input_data):
 
 
 # ---------------------------------------------------------------
+# HYSTERESIS-BASED FAILURE MODE DETECTION FUNCTION
+# ---------------------------------------------------------------
+
+def detect_failure_mode_from_hysteresis(
+    delta_return_cap,
+    delta_return_ultimate,
+    drift_cap,
+    drift_ultimate,
+    strength_cap,
+    strength_ultimate,
+    K
+):
+
+    # Elastic return displacement at capping point
+    delta_elastic_return_cap = drift_cap - (strength_cap / K)
+
+    # Elastic return displacement at ultimate point
+    delta_elastic_return_ultimate = drift_ultimate - (strength_ultimate / K)
+
+    # Self-centering factors
+    SC_cap = delta_return_cap / delta_elastic_return_cap
+
+    # This follows your provided formula:
+    # SC_ultimate = delta_return_ultimate / delta_elastic_return_cap
+    SC_ultimate = delta_return_ultimate / delta_elastic_return_cap
+
+    # First-level control criterion
+    control_check = drift_ultimate - 0.92
+
+    if control_check < 0:
+
+        behavior_control = "Force-controlled"
+
+        # Force-controlled failure-mode criterion
+        force_classifier_value = (
+            2.74 * drift_cap
+            + 3.95 * drift_ultimate
+            - 3.35
+        )
+
+        if force_classifier_value < 0:
+            failure_mode = "Diagonal"
+        else:
+            failure_mode = "Toe crushing"
+
+        deformation_classifier_value = None
+
+    else:
+
+        behavior_control = "Deformation-controlled"
+
+        # Deformation-controlled failure-mode criterion
+        deformation_classifier_value = (
+            3.19 * SC_cap
+            + SC_ultimate
+            - 2.13
+        )
+
+        if deformation_classifier_value < 0:
+            failure_mode = "Rocking"
+        else:
+            failure_mode = "Sliding"
+
+        force_classifier_value = None
+
+    results = {
+        "delta_elastic_return_cap": delta_elastic_return_cap,
+        "delta_elastic_return_ultimate": delta_elastic_return_ultimate,
+        "SC_cap": SC_cap,
+        "SC_ultimate": SC_ultimate,
+        "control_check": control_check,
+        "force_classifier_value": force_classifier_value,
+        "deformation_classifier_value": deformation_classifier_value,
+        "behavior_control": behavior_control,
+        "failure_mode": failure_mode
+    }
+
+    return results
+
+
+# ---------------------------------------------------------------
 # WEBSITE TITLE
 # ---------------------------------------------------------------
 
@@ -67,9 +148,10 @@ st.title("Seismic Behavior Prediction of URM Walls")
 
 st.markdown(
     """
-    This web application predicts the seismic behavior of unreinforced masonry walls 
-    using an XGBoost-based machine learning model. The model estimates the normalized 
-    contribution of rocking, sliding, diagonal cracking, and toe crushing mechanisms.
+    This web application predicts and detects the seismic behavior of unreinforced masonry 
+    walls using two complementary approaches: an XGBoost-based machine learning model based 
+    on wall design characteristics, and a rule-based failure-mode detection procedure based 
+    on hysteresis testing results.
     """
 )
 
@@ -78,14 +160,20 @@ st.markdown(
 # TABS
 # ---------------------------------------------------------------
 
-tab1, tab2 = st.tabs(["Predict Seismic Behavior", "About the Model"])
+tab_about, tab_predict, tab_detect = st.tabs(
+    [
+        "ℹ️ About the Model",
+        "🔮 Predict Seismic Behavior",
+        "📈 Failure Mode Detection from Hysteresis Test"
+    ]
+)
 
 
 # ---------------------------------------------------------------
-# TAB 1: PREDICTION PAGE
+# TAB 1: XGBOOST-BASED PREDICTION PAGE
 # ---------------------------------------------------------------
 
-with tab1:
+with tab_predict:
 
     st.header("Enter Masonry Wall Inputs")
 
@@ -281,28 +369,227 @@ with tab1:
 
 
 # ---------------------------------------------------------------
-# TAB 2: ABOUT THE MODEL
+# TAB 2: HYSTERESIS-BASED FAILURE MODE DETECTION
 # ---------------------------------------------------------------
 
-with tab2:
+with tab_detect:
+    
+    st.header("Failure Mode Detection Using Hysteresis Testing Results")
 
+    st.markdown(
+        """
+        This module detects the dominant failure mode of a URM wall using parameters extracted 
+        from hysteresis testing results. The procedure first determines whether the wall response 
+        is force-controlled or deformation-controlled, and then assigns the corresponding failure mode.
+        """
+    )
+    st.image(
+        "failure_mode_detection.png",
+        caption="Decision boundaries for hysteresis-based failure mode detection",
+        use_column_width=True
+    )
+
+    st.subheader("Enter Hysteresis-Based Parameters")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        delta_return_cap = st.number_input(
+            "δ_return,cap",
+            value=0.00,
+            step=0.01,
+            help="Return displacement/drift at the capping point."
+        )
+
+        delta_return_ultimate = st.number_input(
+            "δ_return,ultimate",
+            value=0.00,
+            step=0.01,
+            help="Return displacement/drift at the ultimate point."
+        )
+
+        drift_cap = st.number_input(
+            "drift_cap",
+            value=0.00,
+            step=0.01,
+            help="Drift at the capping point."
+        )
+
+        drift_ultimate = st.number_input(
+            "drift_ultimate",
+            value=0.00,
+            step=0.01,
+            help="Drift at the ultimate point."
+        )
+
+    with col2:
+
+        strength_cap = st.number_input(
+            "Strength_cap",
+            value=0.00,
+            step=0.01,
+            help="Lateral strength at the capping point."
+        )
+
+        strength_ultimate = st.number_input(
+            "Strength_ultimate",
+            value=0.00,
+            step=0.01,
+            help="Lateral strength at the ultimate point."
+        )
+
+        K = st.number_input(
+            "Initial elastic stiffness, K",
+            min_value=0.0,
+            value=1.00,
+            step=0.01,
+            help=(
+                "Initial elastic stiffness defined as the slope of the data points "
+                "preceding 50% of the maximum lateral resistance."
+            )
+        )
+
+    st.divider()
+
+    if st.button("Detect Failure Mode from Hysteresis Test"):
+
+        if K <= 0:
+            st.error("Initial elastic stiffness K must be greater than zero.")
+
+        else:
+
+            delta_elastic_return_cap_check = drift_cap - (strength_cap / K)
+
+            if delta_elastic_return_cap_check == 0:
+                st.error(
+                    "δ_elastic return,cap is zero. SC_cap and SC_ultimate cannot be calculated "
+                    "because division by zero would occur."
+                )
+
+            else:
+
+                hysteresis_results = detect_failure_mode_from_hysteresis(
+                    delta_return_cap=delta_return_cap,
+                    delta_return_ultimate=delta_return_ultimate,
+                    drift_cap=drift_cap,
+                    drift_ultimate=drift_ultimate,
+                    strength_cap=strength_cap,
+                    strength_ultimate=strength_ultimate,
+                    K=K
+                )
+
+                st.header("Failure Mode Detection Results")
+
+                c1, c2 = st.columns(2)
+
+                c1.metric(
+                    "Behavior control type",
+                    hysteresis_results["behavior_control"]
+                )
+
+                c2.metric(
+                    "Detected failure mode",
+                    hysteresis_results["failure_mode"]
+                )
+
+                if hysteresis_results["failure_mode"] in ["Diagonal", "Toe crushing"]:
+                    st.warning(
+                        f"The wall is classified as **{hysteresis_results['behavior_control']}**, "
+                        f"and the detected failure mode is **{hysteresis_results['failure_mode']}**."
+                    )
+                else:
+                    st.success(
+                        f"The wall is classified as **{hysteresis_results['behavior_control']}**, "
+                        f"and the detected failure mode is **{hysteresis_results['failure_mode']}**."
+                    )
+
+                st.subheader("Calculated Parameters")
+
+                calculated_df = pd.DataFrame({
+                    "Parameter": [
+                        "δ_elastic return,cap",
+                        "δ_elastic return,ultimate",
+                        "SC_cap",
+                        "SC_ultimate",
+                        "drift_ultimate - 0.92"
+                    ],
+                    "Value": [
+                        hysteresis_results["delta_elastic_return_cap"],
+                        hysteresis_results["delta_elastic_return_ultimate"],
+                        hysteresis_results["SC_cap"],
+                        hysteresis_results["SC_ultimate"],
+                        hysteresis_results["control_check"]
+                    ]
+                })
+
+                st.dataframe(
+                    calculated_df,
+                    use_container_width=True
+                )
+
+                st.subheader("Decision Function Values")
+
+                decision_rows = []
+
+                if hysteresis_results["force_classifier_value"] is not None:
+                    decision_rows.append(
+                        {
+                            "Decision function": "2.74 drift_cap + 3.95 drift_ultimate - 3.35",
+                            "Value": hysteresis_results["force_classifier_value"],
+                            "Rule": "< 0 → Diagonal, otherwise → Toe crushing"
+                        }
+                    )
+
+                if hysteresis_results["deformation_classifier_value"] is not None:
+                    decision_rows.append(
+                        {
+                            "Decision function": "3.19 SC_cap + SC_ultimate - 2.13",
+                            "Value": hysteresis_results["deformation_classifier_value"],
+                            "Rule": "< 0 → Rocking, otherwise → Sliding"
+                        }
+                    )
+
+                decision_df = pd.DataFrame(decision_rows)
+
+                st.dataframe(
+                    decision_df,
+                    use_container_width=True
+                )
+
+                st.info(
+                    """
+                    The classification is based on threshold functions calculated from 
+                    hysteresis-response parameters. The same unit system should be used 
+                    consistently for drift, displacement, strength, and stiffness.
+                    """
+                )
+
+
+# ---------------------------------------------------------------
+# TAB 3: ABOUT THE MODEL
+# ---------------------------------------------------------------
+
+with tab_about:
+    
     st.header("About the Model")
 
     st.markdown(
         """
-        This web application is developed to predict the seismic behavior of 
-        unreinforced masonry walls using a machine learning model.
+        This web application is developed to evaluate the seismic behavior of 
+        unreinforced masonry walls using two complementary approaches.
 
-        The predictive model is based on **XGBoost**, which stands for 
-        **Extreme Gradient Boosting**. XGBoost is a tree-based machine learning algorithm 
-        that builds an ensemble of decision trees sequentially. Each new tree attempts 
-        to reduce the prediction error of the previous trees, allowing the model to capture 
-        nonlinear relationships between input variables and target responses.
+        The first approach is an **XGBoost-based machine learning model**. XGBoost stands for 
+        **Extreme Gradient Boosting**. It is a tree-based machine learning algorithm that builds 
+        an ensemble of decision trees sequentially. Each new tree attempts to reduce the prediction 
+        error of the previous trees, allowing the model to capture nonlinear relationships between 
+        input variables and target responses.
 
-        In this application, the XGBoost model is used to predict the contribution of different
-        failure modes to the overal wall behavior.Notably, the model requires only the wall design
+        In this application, the XGBoost model is used to predict the contribution of different 
+        failure modes to the overall wall behavior. Notably, the model requires only the wall design 
         characteristics as input variables.
-        The input parameters are:
+
+        The input parameters for the XGBoost-based prediction module are:
 
         | Input variable | Unit / coding | Description |
         |---|---|---|
@@ -316,12 +603,22 @@ with tab2:
 
         | Output | Meaning |
         |---|---|
-        | Rocking Hybridity Index (%) | contribution of rocking behavior |
-        | Sliding Hybridity Index (%) | contribution of sliding behavior |
-        | Diagonal Hybridity Index (%) | contribution of diagonal cracking behavior |
-        | Toe Crushing Hybridity Index (%) | contribution of toe crushing behavior |
+        | Rocking Hybridity Index (%) | Contribution of rocking behavior |
+        | Sliding Hybridity Index (%) | Contribution of sliding behavior |
+        | Diagonal Hybridity Index (%) | Contribution of diagonal cracking behavior |
+        | Toe Crushing Hybridity Index (%) | Contribution of toe crushing behavior |
 
         A larger Hybridity Index indicates a larger contribution of that failure mechanism 
         to the predicted cyclic behavior of the URM wall.
+
+        The second approach is a **hysteresis-based failure mode detection procedure**. This module 
+        uses parameters extracted from hysteresis testing results, including return displacement, 
+        drift capacity, ultimate drift, strength values, and initial elastic stiffness. The procedure 
+        calculates elastic-return and self-centering parameters, then classifies the wall response as 
+        either force-controlled or deformation-controlled. Based on this classification, the dominant 
+        failure mode is detected as diagonal cracking, toe crushing, rocking, or sliding.
+
+        For the hysteresis-based module, the initial elastic stiffness **K** is defined as the slope 
+        of the data points preceding 50% of the maximum lateral resistance.
         """
     )
