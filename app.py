@@ -62,10 +62,10 @@ about, predict, detect = st.tabs(["About the Model", "Predict Seismic Behavior",
 
 with about:
     st.header("About the Model")
+    st.write("This study proposes a data-driven framework to identify and quantify the contribution of different failure modes to the force–deformation response of unreinforced masonry (URM) walls. The framework uses the XGBoost algorithm for supervised learning, and model performance is evaluated using a 5-fold cross-validation procedure applied to the database.")
     st.write("This module predicts the seismic behavior of unreinforced masonry walls from their geometrical and mechanical properties. Results are presented as Hybridity Indices (%), indicating the relative contribution of rocking, bed-joint sliding, diagonal cracking, and toe crushing to the predicted wall response.")
     st.write("The hysteresis-based module identifies the dominant failure mode using parameters extracted from cyclic tests. It first determines whether the response is force-controlled or deformation-controlled, then identifies the corresponding failure mechanism.")
     st.write("Inputs for prediction: aspect ratio, axial load ratio, prism strength (MPa), cross-sectional area (m²), and boundary condition.")
-    st.write("Initial stiffness K is determined from the slope of the initial response before approximately 50% of the maximum lateral resistance.")
 
 with predict:
     try:
@@ -113,7 +113,16 @@ with predict:
 
 with detect:
     st.header("Failure Mode Detection Using Hysteresis Testing Results")
-    st.info("Enter the capping and ultimate drift values and their corresponding return drift values. Use the same units for all drift inputs. The initial stiffness K must be expressed as lateral strength per unit drift.")
+    st.info(
+        "Enter the capping and ultimate drift ratios and their corresponding return drift ratios "
+        "in percent (%)—for example, enter 0.5 for a drift ratio of 0.5%. "
+        r"Enter lateral strength normalized by $0.1\,A_n\,f_{mc}$, where $f_{mc}$ denotes "
+        r"the prism strength of the sample and $A_n$ is the cross-sectional area of the wall. "
+        "Use consistent force and area units when calculating the normalized strength.\n\n"
+        "The initial stiffness K is the slope of the data points preceding 50% of the maximum "
+        "lateral resistance. Calculate K from the normalized-strength versus drift-ratio (%) "
+        "curve and enter it as normalized strength per percentage point of drift."
+    )
     try:
         rules = load_rules()
     except Exception as error:
@@ -133,14 +142,14 @@ with detect:
         with st.form("hysteresis_inputs"):
             a, b = st.columns(2)
             with a:
-                return_cap = st.number_input("Return drift at capping", value=0.0, step=0.01)
-                return_ult = st.number_input("Return drift at ultimate", value=0.0, step=0.01)
-                drift_cap = st.number_input("Capping drift", value=0.0, step=0.01)
-                drift_ult = st.number_input("Ultimate drift", value=0.0, step=0.01)
+                return_cap = st.number_input("Return drift ratio at capping (%)", value=0.0, step=0.01)
+                return_ult = st.number_input("Return drift ratio at ultimate (%)", value=0.0, step=0.01)
+                drift_cap = st.number_input("Capping drift ratio (%)", value=0.0, step=0.01)
+                drift_ult = st.number_input("Ultimate drift ratio (%)", value=0.0, step=0.01)
             with b:
-                strength_cap = st.number_input("Strength at capping", value=0.0, step=0.01)
-                strength_ult = st.number_input("Strength at ultimate", value=0.0, step=0.01)
-                stiffness = st.number_input("Initial stiffness K", min_value=0.0, value=1.0, step=0.01)
+                strength_cap = st.number_input("Normalized strength at capping", value=0.0, step=0.01)
+                strength_ult = st.number_input("Normalized strength at ultimate", value=0.0, step=0.01)
+                stiffness = st.number_input("Initial stiffness K (normalized strength per percentage point of drift)", min_value=0.0, value=1.0, step=0.01)
             submitted = st.form_submit_button("Detect Failure Mode")
         if submitted:
             try:
