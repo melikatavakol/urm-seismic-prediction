@@ -42,7 +42,7 @@ def self_centering(return_cap, return_ult, drift_cap, drift_ult, strength_cap, s
     if abs(elastic_cap) < 1e-12 or abs(elastic_ult) < 1e-12:
         raise ValueError("An elastic-return denominator is zero; self-centering cannot be calculated.")
     sc_cap, sc_ult = return_cap / elastic_cap, return_ult / elastic_ult
-    # Match the supplied notebook's feature-extraction corrections exactly.
+    # Apply the self-centering corrections.
     if -0.5 < sc_cap < 0 or return_cap < 0.01:
         sc_cap = 0.0
     if -0.5 < sc_ult < 0:
@@ -62,10 +62,10 @@ about, predict, detect = st.tabs(["About the Model", "Predict Seismic Behavior",
 
 with about:
     st.header("About the Model")
-    st.write("The prediction module uses four XGBoost regressors to estimate rocking, sliding, diagonal cracking, and toe-crushing Hybridity Indices. Negative predictions are clipped to zero, then the four outputs are normalized to percentages.")
-    st.write("The hysteresis module applies the linear SVM decision boundaries fitted to the notebook's two-stage clustering labels. The first stage determines force- or deformation-controlled behavior; the second stage assigns the failure mechanism.")
+    st.write("This module predicts the seismic behavior of unreinforced masonry walls from their geometrical and mechanical properties. Results are presented as Hybridity Indices (%), indicating the relative contribution of rocking, bed-joint sliding, diagonal cracking, and toe crushing to the predicted wall response.")
+    st.write("The hysteresis-based module identifies the dominant failure mode using parameters extracted from cyclic tests. It first determines whether the response is force-controlled or deformation-controlled, then identifies the corresponding failure mechanism.")
     st.write("Inputs for prediction: aspect ratio, axial load ratio, prism strength (MPa), cross-sectional area (m²), and boundary condition.")
-    st.write("Initial stiffness K is obtained from the initial response preceding approximately 50% of maximum lateral resistance, following the notebook's extraction procedure.")
+    st.write("Initial stiffness K is determined from the slope of the initial response before approximately 50% of the maximum lateral resistance.")
 
 with predict:
     try:
@@ -109,12 +109,11 @@ with predict:
                 fig.tight_layout()
                 st.pyplot(fig)
                 plt.close(fig)
-                st.caption("Displayed values are rounded; calculations use unrounded percentages.")
+                st.caption("A larger Hybridity Index indicates a greater contribution of that failure mechanism to the predicted wall response.")
 
 with detect:
     st.header("Failure Mode Detection Using Hysteresis Testing Results")
-    st.info("Enter drift and return values on the same numerical scale as the notebook database. Strength and K must be consistent so that strength / K has those same drift units. Do not mix drift ratios, percentages, and displacements.")
-    st.caption("The notebook's SC_cap correction sets it to zero when return_cap < 0.01 in the database's drift units. Small negative self-centering values between −0.5 and 0 are also set to zero.")
+    st.info("Enter the capping and ultimate drift values and their corresponding return drift values. Use the same units for all drift inputs. The initial stiffness K must be expressed as lateral strength per unit drift.")
     try:
         rules = load_rules()
     except Exception as error:
@@ -130,7 +129,7 @@ with detect:
         with st.expander("Decision boundaries used by this application"):
             for label, rule in rules.items():
                 st.write(f"{label}: {equation(rule)}")
-                st.caption(f"Negative score: {rule['negative_class']}; nonnegative score: {rule['positive_class']}. Full precision is used internally.")
+                st.caption(f"Negative score: {rule['negative_class']}; nonnegative score: {rule['positive_class']}.")
         with st.form("hysteresis_inputs"):
             a, b = st.columns(2)
             with a:
