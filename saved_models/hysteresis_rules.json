@@ -1,0 +1,39 @@
+{
+  "first": {
+    "features": [
+      "ult_point_drift"
+    ],
+    "weights": [
+      -9.478660484298043
+    ],
+    "intercept": 8.023532739635288,
+    "negative_class": "Deformation controlled",
+    "positive_class": "Force controlled"
+  },
+  "force": {
+    "features": [
+      "cap_point_drift",
+      "ult_point_drift"
+    ],
+    "weights": [
+      4.4808446923698675,
+      5.3856192637154034
+    ],
+    "intercept": -3.8319671222587375,
+    "negative_class": "Diagonal",
+    "positive_class": "Toe Crushing"
+  },
+  "deformation": {
+    "features": [
+      "SC_cap",
+      "SC_ult"
+    ],
+    "weights": [
+      3.071938144279023,
+      1.8568103933298263
+    ],
+    "intercept": -2.193713653832674,
+    "negative_class": "Rocking",
+    "positive_class": "Sliding"
+  }
+}
